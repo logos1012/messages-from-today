@@ -1,0 +1,10 @@
+{
+  "id": "messages-from-today",
+  "name": "Messages from Today",
+  "version": "1.0.0",
+  "minAppVersion": "1.0.0",
+  "description": "Extract insightful messages from daily notes using AI and send to Airtable",
+  "author": "jake",
+  "authorUrl": "https://github.com/jaekwangseo",
+  "isDesktopOnly": false
+}

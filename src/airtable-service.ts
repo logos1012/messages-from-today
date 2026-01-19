@@ -20,9 +20,16 @@ export class AirtableService {
     const url = `https://api.airtable.com/v0/${airtableBaseId}/${encodeURIComponent(airtableTableName)}`;
 
     const fields: Record<string, string> = {};
-    fields[airtableMessageField || 'Message'] = insight.message;
-    if (insight.description && airtableDescriptionField) {
-      fields[airtableDescriptionField] = insight.description;
+    
+    let content = insight.message;
+    if (insight.description) {
+      content += '\n\n' + insight.description;
+    }
+    
+    fields[airtableMessageField || 'Message'] = content;
+    
+    if (airtableDescriptionField) {
+      fields[airtableDescriptionField] = insight.description || '';
     }
 
     try {

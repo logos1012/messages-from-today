@@ -21,22 +21,36 @@ export class AirtableService {
 
     const fields: Record<string, string> = {};
     fields[airtableMessageField || 'Message'] = insight.message;
-    fields[airtableDescriptionField || 'Description'] = insight.description;
+    if (insight.description) {
+      fields[airtableDescriptionField || 'Description'] = insight.description;
+    }
 
-    const response = await requestUrl({
-      url: url,
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${airtableApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        records: [{ fields }]
-      }),
-    });
+    try {
+      const response = await requestUrl({
+        url: url,
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${airtableApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          records: [{ fields }]
+        }),
+      });
 
-    if (response.status !== 200) {
-      throw new Error(`Airtable API error: ${response.status}`);
+      const data = response.json;
+      
+      if (data.error) {
+        throw new Error(`Airtable error: ${data.error.type} - ${data.error.message}`);
+      }
+    } catch (error) {
+      if (error instanceof Error) {
+        if (error.message.includes('422')) {
+          throw new Error(`Airtable 422 error: Check field names match your table. Fields sent: ${JSON.stringify(fields)}`);
+        }
+        throw error;
+      }
+      throw new Error('Unknown Airtable error');
     }
   }
 }

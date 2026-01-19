@@ -1,4 +1,4 @@
-import { App, Editor, MarkdownView, Notice, Plugin } from 'obsidian';
+import { App, MarkdownView, Notice, Plugin, TFile } from 'obsidian';
 import { PluginSettings, DEFAULT_SETTINGS, InsightMessage } from './types';
 import { AIService } from './ai-service';
 import { AirtableService } from './airtable-service';
@@ -32,8 +32,8 @@ export default class MessagesFromTodayPlugin extends Plugin {
     this.addCommand({
       id: 'send-message-to-airtable',
       name: 'Send Message to Airtable',
-      editorCallback: async (editor: Editor, view: MarkdownView) => {
-        await this.sendSelectedMessageToAirtable(editor, view);
+      callback: async () => {
+        await this.sendMessagesToAirtable();
       }
     });
 
@@ -96,7 +96,7 @@ export default class MessagesFromTodayPlugin extends Plugin {
     return lines.join('\n');
   }
 
-  private async appendInsightsToNote(file: any, content: string, formattedInsights: string): Promise<void> {
+  private async appendInsightsToNote(file: TFile, content: string, formattedInsights: string): Promise<void> {
     const headerIndex = content.indexOf(MESSAGES_HEADER);
     
     let newContent: string;
@@ -122,80 +122,90 @@ export default class MessagesFromTodayPlugin extends Plugin {
     await this.app.vault.modify(file, newContent);
   }
 
-  private async sendSelectedMessageToAirtable(editor: Editor, view: MarkdownView): Promise<void> {
-    const selection = editor.getSelection();
-    
-    if (!selection.trim()) {
-      new Notice('Please select a message and its description');
+  private async sendMessagesToAirtable(): Promise<void> {
+    const activeFile = this.app.workspace.getActiveFile();
+    if (!activeFile) {
+      new Notice('No active file open');
       return;
     }
 
-    const insight = this.parseSelectedMessage(selection);
+    const content = await this.app.vault.read(activeFile);
+    const insights = this.parseMessagesFromNote(content);
     
-    if (!insight) {
-      new Notice('Could not parse the selected message. Please select a message line and its description.');
+    if (insights.length === 0) {
+      new Notice('No messages found in "### Messages from Today" section');
       return;
     }
 
-    new Notice('Sending to Airtable...');
+    new Notice(`Sending ${insights.length} message(s) to Airtable...`);
 
-    try {
-      await this.airtableService.sendMessage(insight);
-      new Notice('Message sent to Airtable successfully!');
-    } catch (error) {
-      console.error('Failed to send to Airtable:', error);
-      new Notice(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const insight of insights) {
+      try {
+        await this.airtableService.sendMessage(insight);
+        successCount++;
+      } catch (error) {
+        console.error('Failed to send message to Airtable:', error);
+        failCount++;
+      }
+    }
+
+    if (failCount === 0) {
+      new Notice(`Successfully sent ${successCount} message(s) to Airtable!`);
+    } else {
+      new Notice(`Sent ${successCount} message(s), ${failCount} failed`);
     }
   }
 
-  private parseSelectedMessage(selection: string): InsightMessage | null {
-    const lines = selection.split('\n').map(line => line.trim()).filter(line => line);
+  private parseMessagesFromNote(content: string): InsightMessage[] {
+    const insights: InsightMessage[] = [];
     
-    if (lines.length < 1) {
-      return null;
+    const headerIndex = content.indexOf(MESSAGES_HEADER);
+    if (headerIndex === -1) {
+      return insights;
     }
 
-    let message = '';
-    let description = '';
+    const afterHeader = content.substring(headerIndex + MESSAGES_HEADER.length);
+    
+    const nextSectionMatch = afterHeader.match(/\n#{1,3}\s/);
+    const sectionContent = nextSectionMatch 
+      ? afterHeader.substring(0, nextSectionMatch.index)
+      : afterHeader;
+
+    const lines = sectionContent.split('\n');
+    
+    let currentMessage: string | null = null;
+    let currentDescription: string | null = null;
 
     for (const line of lines) {
-      if (line.startsWith('- ') && !line.startsWith('-\t') && !message) {
-        message = line.substring(2).trim();
-      } else if ((line.startsWith('\t- ') || line.startsWith('  - ') || line.startsWith('    - ')) && message) {
-        const descMatch = line.match(/^[\t\s]*-\s*(.+)$/);
-        if (descMatch) {
-          description = descMatch[1].trim();
-          break;
-        }
-      } else if (line.startsWith('- ') && message) {
-        const descMatch = line.match(/^-\s*(.+)$/);
-        if (descMatch && !description) {
-          description = descMatch[1].trim();
-        }
-      }
-    }
-
-    if (!message) {
-      const firstLine = lines[0];
-      if (firstLine.startsWith('- ')) {
-        message = firstLine.substring(2).trim();
-      } else {
-        message = firstLine;
-      }
+      const trimmedLine = line.trim();
       
-      if (lines.length > 1) {
-        const secondLine = lines[1];
-        const descMatch = secondLine.match(/^[\t\s]*-?\s*(.+)$/);
+      if (trimmedLine.startsWith('- ') && !line.startsWith('\t') && !line.startsWith('  ')) {
+        if (currentMessage) {
+          insights.push({
+            message: currentMessage,
+            description: currentDescription || ''
+          });
+        }
+        currentMessage = trimmedLine.substring(2).trim();
+        currentDescription = null;
+      } else if ((line.startsWith('\t-') || line.startsWith('\t\t-') || line.startsWith('  -') || line.startsWith('    -')) && currentMessage) {
+        const descMatch = trimmedLine.match(/^-\s*(.+)$/);
         if (descMatch) {
-          description = descMatch[1].trim();
+          currentDescription = descMatch[1].trim();
         }
       }
     }
 
-    if (!message) {
-      return null;
+    if (currentMessage) {
+      insights.push({
+        message: currentMessage,
+        description: currentDescription || ''
+      });
     }
 
-    return { message, description };
+    return insights;
   }
 }

@@ -125,7 +125,7 @@ export class AIService {
   }
 
   private isOpenAIReasoningModel(model: OpenAIModel): boolean {
-    return model.startsWith('o1') || model.startsWith('o3') || model.startsWith('o4');
+    return model.startsWith('o1');
   }
 
   private parseAIResponse(responseText: string): InsightMessage[] {

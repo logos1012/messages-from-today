@@ -14,24 +14,14 @@ function formatCost(input: number, output: number): string {
 function getOpenAIModelLabel(model: OpenAIModel): string {
   const pricing = PRICING_PER_MILLION_TOKENS.openai[model];
   const labels: Record<OpenAIModel, string> = {
-    'gpt-5.2': 'GPT-5.2',
-    'gpt-5.2-pro': 'GPT-5.2 Pro',
-    'gpt-5.1': 'GPT-5.1',
-    'gpt-5': 'GPT-5',
-    'gpt-5-mini': 'GPT-5 Mini',
-    'gpt-5-nano': 'GPT-5 Nano',
-    'gpt-5-pro': 'GPT-5 Pro',
-    'gpt-4.1': 'GPT-4.1',
-    'gpt-4.1-mini': 'GPT-4.1 Mini',
-    'gpt-4.1-nano': 'GPT-4.1 Nano',
     'gpt-4o': 'GPT-4o',
     'gpt-4o-mini': 'GPT-4o Mini',
-    'o3': 'o3',
-    'o3-pro': 'o3 Pro',
-    'o4-mini': 'o4 Mini',
+    'gpt-4-turbo': 'GPT-4 Turbo',
+    'gpt-4': 'GPT-4',
+    'gpt-3.5-turbo': 'GPT-3.5 Turbo',
     'o1': 'o1',
-    'o1-pro': 'o1 Pro',
     'o1-mini': 'o1 Mini',
+    'o1-preview': 'o1 Preview',
   };
   return `${labels[model]} (${formatCost(pricing.input, pricing.output)})`;
 }
@@ -103,10 +93,10 @@ export class MessagesFromTodaySettingTab extends PluginSettingTab {
         .setDesc('Model for insight generation. Cost shown as input/output per 1M tokens.')
         .addDropdown(dropdown => {
           const models: OpenAIModel[] = [
-            'gpt-5.2', 'gpt-5.2-pro', 'gpt-5.1', 'gpt-5', 'gpt-5-mini', 'gpt-5-nano', 'gpt-5-pro',
-            'gpt-4.1', 'gpt-4.1-mini', 'gpt-4.1-nano',
             'gpt-4o', 'gpt-4o-mini',
-            'o3', 'o3-pro', 'o4-mini', 'o1', 'o1-pro', 'o1-mini'
+            'gpt-4-turbo', 'gpt-4',
+            'gpt-3.5-turbo',
+            'o1', 'o1-mini', 'o1-preview'
           ];
           models.forEach(model => {
             dropdown.addOption(model, getOpenAIModelLabel(model));

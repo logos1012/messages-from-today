@@ -1,6 +1,6 @@
 {
   "name": "messages-from-today",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Obsidian plugin to extract insightful messages from daily notes and send to Airtable",
   "main": "main.js",
   "scripts": {

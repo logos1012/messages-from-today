@@ -242,10 +242,10 @@ export class MessagesFromTodaySettingTab extends PluginSettingTab {
         }));
 
     new Setting(containerEl)
-      .setName('Description Field Name')
-      .setDesc('The field name for the description in Airtable')
+      .setName('Description Field Name (Optional)')
+      .setDesc('The field name for the description in Airtable. Leave empty to skip sending description.')
       .addText(text => text
-        .setPlaceholder('Description')
+        .setPlaceholder('(optional)')
         .setValue(this.plugin.settings.airtableDescriptionField)
         .onChange(async (value) => {
           this.plugin.settings.airtableDescriptionField = value;

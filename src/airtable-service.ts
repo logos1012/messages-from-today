@@ -21,8 +21,8 @@ export class AirtableService {
 
     const fields: Record<string, string> = {};
     fields[airtableMessageField || 'Message'] = insight.message;
-    if (insight.description) {
-      fields[airtableDescriptionField || 'Description'] = insight.description;
+    if (insight.description && airtableDescriptionField) {
+      fields[airtableDescriptionField] = insight.description;
     }
 
     try {

@@ -1,10 +1,8 @@
-import { requestUrl } from 'obsidian';
+import { requestUrl, RequestUrlResponsePromise } from 'obsidian';
 import { 
   PluginSettings, 
   InsightMessage, 
-  OpenAIModel, 
-  GeminiModel, 
-  ClaudeModel 
+  OpenAIModel
 } from './types';
 
 interface AIResponse {
@@ -32,7 +30,7 @@ export class AIService {
   private async callOpenAI(content: string): Promise<InsightMessage[]> {
     const apiKey = this.settings.openaiApiKey;
     if (!apiKey) {
-      throw new Error('OpenAI API key is not configured');
+      throw new Error('OpenAI API key is not configured. Please add your API key in settings.');
     }
 
     const model = this.settings.openaiModel;
@@ -45,87 +43,125 @@ export class AIService {
           { role: 'user', content: `Daily Note Content:\n${content}` }
         ];
 
-    const response = await requestUrl({
-      url: 'https://api.openai.com/v1/chat/completions',
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: model,
-        messages: messages,
-        temperature: isReasoningModel ? 1 : 0.7,
-      }),
-    });
+    try {
+      const response = await requestUrl({
+        url: 'https://api.openai.com/v1/chat/completions',
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: model,
+          messages: messages,
+          temperature: isReasoningModel ? 1 : 0.7,
+        }),
+      });
 
-    const data = response.json;
-    const responseContent = data.choices[0].message.content;
-    return this.parseAIResponse(responseContent);
+      const data = response.json;
+      
+      if (data.error) {
+        throw new Error(`OpenAI API error: ${data.error.message}`);
+      }
+      
+      const responseContent = data.choices[0].message.content;
+      return this.parseAIResponse(responseContent);
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('401')) {
+        throw new Error('OpenAI API key is invalid. Please check your API key in settings.');
+      }
+      throw error;
+    }
   }
 
   private async callGemini(content: string): Promise<InsightMessage[]> {
     const apiKey = this.settings.geminiApiKey;
     if (!apiKey) {
-      throw new Error('Gemini API key is not configured');
+      throw new Error('Gemini API key is not configured. Please add your API key in settings.');
     }
 
     const model = this.settings.geminiModel;
-    const response = await requestUrl({
-      url: `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        contents: [{
-          parts: [{
-            text: `${this.settings.systemPrompt}\n\n---\n\nDaily Note Content:\n${content}`
-          }]
-        }],
-        generationConfig: {
-          temperature: 0.7,
-        }
-      }),
-    });
+    
+    try {
+      const response = await requestUrl({
+        url: `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contents: [{
+            parts: [{
+              text: `${this.settings.systemPrompt}\n\n---\n\nDaily Note Content:\n${content}`
+            }]
+          }],
+          generationConfig: {
+            temperature: 0.7,
+          }
+        }),
+      });
 
-    const data = response.json;
-    const responseContent = data.candidates[0].content.parts[0].text;
-    return this.parseAIResponse(responseContent);
+      const data = response.json;
+      
+      if (data.error) {
+        throw new Error(`Gemini API error: ${data.error.message}`);
+      }
+      
+      const responseContent = data.candidates[0].content.parts[0].text;
+      return this.parseAIResponse(responseContent);
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('401')) {
+        throw new Error('Gemini API key is invalid. Please check your API key in settings.');
+      }
+      throw error;
+    }
   }
 
   private async callClaude(content: string): Promise<InsightMessage[]> {
     const apiKey = this.settings.claudeApiKey;
     if (!apiKey) {
-      throw new Error('Claude API key is not configured');
+      throw new Error('Claude API key is not configured. Please add your API key in settings.');
     }
 
     const model = this.settings.claudeModel;
-    const response = await requestUrl({
-      url: 'https://api.anthropic.com/v1/messages',
-      method: 'POST',
-      headers: {
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: model,
-        max_tokens: 2048,
-        system: this.settings.systemPrompt,
-        messages: [
-          { role: 'user', content: `Daily Note Content:\n${content}` }
-        ],
-      }),
-    });
+    
+    try {
+      const response = await requestUrl({
+        url: 'https://api.anthropic.com/v1/messages',
+        method: 'POST',
+        headers: {
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: model,
+          max_tokens: 2048,
+          system: this.settings.systemPrompt,
+          messages: [
+            { role: 'user', content: `Daily Note Content:\n${content}` }
+          ],
+        }),
+      });
 
-    const data = response.json;
-    const responseContent = data.content[0].text;
-    return this.parseAIResponse(responseContent);
+      const data = response.json;
+      
+      if (data.error) {
+        throw new Error(`Claude API error: ${data.error.message}`);
+      }
+      
+      const responseContent = data.content[0].text;
+      return this.parseAIResponse(responseContent);
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('401')) {
+        throw new Error('Claude API key is invalid. Please check your API key in settings.');
+      }
+      throw error;
+    }
   }
 
   private isOpenAIReasoningModel(model: OpenAIModel): boolean {
-    return model.startsWith('o1');
+    return model.startsWith('o1') || model.startsWith('o3') || model.startsWith('o4');
   }
 
   private parseAIResponse(responseText: string): InsightMessage[] {
